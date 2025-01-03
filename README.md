@@ -15,7 +15,7 @@
 - [ ] Асинхронная проверка файлов
 - [ ] Асинхронное копирование файлов
 - [ ] Поддержка командной строки и аргументов запуска
-- [ ] [Windows](https://github.com/vse3211/CopyPlus/milestone/1)
+- [x] [Windows](https://github.com/vse3211/CopyPlus/milestone/1)
 - [ ] [Linux](https://github.com/vse3211/CopyPlus/milestone/2)
 - [ ] [MacOS](https://github.com/vse3211/CopyPlus/milestone/3)
 - [ ] [Android](https://github.com/vse3211/CopyPlus/milestone/4)
