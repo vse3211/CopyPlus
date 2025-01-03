@@ -1,0 +1,197 @@
+﻿@page "/"
+@using System
+@using System.IO
+@using System.Security.Cryptography
+@using System.Text
+@using System.Linq
+@inject IFolderPicker FolderPicker
+
+<h1 @onclick="StateHasChanged">Hello, world!</h1>
+
+@if ((copyOnStart && TargetPath != null) || !copyOnStart)
+{
+    <a @onclick="() => _ = Task.Run(() => OpenFolder(0))" class="btn btn-outline-success">Source folder: @SourcePath</a>
+    <br />
+}
+<a @onclick="() => _ = Task.Run(() => OpenFolder(1))" class="btn btn-outline-info">Target folder: @TargetPath</a>
+<br />
+@if (SourcePath != null && ((SourceFilesInfo is not null && SourceFilesInfo.Count == 0) || SourceFilesInfo is null))
+{
+    <a @onclick="() => _ = Task.Run(() => OpenFolder(2))" class="btn btn-danger">Start scan source</a>
+    <br />
+}
+@if ((SourceFilesInfo is not null && SourceFilesInfo.Count == 0) || SourceFilesInfo is null)
+{
+    <p>Copy after scan: <input type="checkbox" @bind-value="copyOnStart" /></p>
+    <br />
+}
+
+@if (inProgress)
+{
+    <h1>In progress!</h1>
+    <p>Copy after scan: @copyOnStart</p>
+}
+
+@if (!inProgress)
+{
+    @if (SourceFilesInfo is not null && SourceFilesInfo.Count > 0)
+    {
+        <textarea @bind="SourceFilesList" readonly rows="10" cols="100" />
+        <a @onclick="() => _ = Task.Run(() => OpenFolder(3))" class="btn btn-danger">Start copy</a>
+    }
+}
+
+
+
+@if (Ex != null)
+{
+    <h1>EXCEPTION!</h1><br />
+    <textarea @bind="Ex" readonly rows="10" cols="100" />
+}
+
+@code {
+    Dictionary<string, Classes.FileInfo> SourceFilesInfo = new();
+    Classes.ScanResult ScanResults = new();
+
+    private string? Ex { get; set; }
+    private string? SourceFilesList
+    {
+        get
+        {
+            string? result = null;
+            if (SourceFilesInfo is not null && SourceFilesInfo.Count > 0)
+            {
+                ScanResults = new();
+                result = "Files:";
+                SourceFilesInfo.Values.ToList().ForEach(x =>
+                {
+                    switch(x.Status)
+                    {
+                        case Classes.CopyStatus.Success:
+                            ScanResults.Success++;
+                            break;
+                        case Classes.CopyStatus.Exists:
+                            ScanResults.Exists++;
+                            break;
+                        case Classes.CopyStatus.InProgress:
+                            ScanResults.InProgress++;
+                            break;
+                        case Classes.CopyStatus.NotStarted:
+                            ScanResults.NotStarted++;
+                            if (ScanResults.NotStarted < 30) result += $"\n{x.Status.ToString()} | {x.BaseFilePath}";
+                            break;
+                        case Classes.CopyStatus.Error:
+                            ScanResults.Failure++;
+                            if (ScanResults.Failure < 30) result += $"\n{x.Status.ToString()} | {x.BaseFilePath}";
+                            break;
+                    }
+                });
+                result += $"\n  Success: {ScanResults.Success}";
+                result += $"\n  Exists: {ScanResults.Exists}";
+                result += $"\n  InProgress: {ScanResults.InProgress}";
+                result += $"\n  NotStarted: {ScanResults.NotStarted}";
+                result += $"\n  Failure: {ScanResults.Failure}";
+            }
+            return result;
+        }
+        set { }
+    }
+    private string? SourcePath { get; set; }
+    private string? TargetPath { get; set; }
+    private bool inProgress { get; set; } = false;
+    private bool copyOnStart { get; set; } = false;
+
+    private async Task OpenFolder(int mode)
+    {
+        try
+        {
+            inProgress = true;
+            await InvokeAsync(() => StateHasChanged());
+            switch(mode)
+            {
+                case 0:
+                    SourcePath = await FolderPicker.PickFolder();
+                    SourceFilesInfo.Clear();
+                    break;
+                case 1:
+                    TargetPath = await FolderPicker.PickFolder();
+                    break;
+                case 2:
+                    if (SourcePath is not null) await Scan(SourcePath, ref SourceFilesInfo);
+                    break;
+                case 3:
+                    if (SourcePath is not null && TargetPath is not null) await Copy();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Ex += $"{ex.Message}\n\n";
+            throw;
+        }
+        finally
+        {
+            inProgress = false;
+            await InvokeAsync(() => StateHasChanged());
+        }
+    }
+
+    public Task Scan(string path, ref Dictionary<string, Classes.FileInfo> FilesInfo)
+    {
+        var attributes = File.GetAttributes(path);
+        if (attributes.HasFlag(FileAttributes.Directory))
+        {
+            string[] dirs = Directory.GetDirectories(path);
+            for(int i = 0; i < dirs.Count(); i++)
+            {
+                Scan(dirs[i], ref FilesInfo);
+            }
+            string[] files = Directory.GetFiles(path);
+            for (int i = 0; i < files.Count(); i++)
+            {
+                Scan(files[i], ref FilesInfo);
+            }
+        }
+        else
+        {
+            Classes.FileInfo fileInfo = new Classes.FileInfo(copyOnStart) { BaseSourcePath = SourcePath!, BaseDestinationPath = TargetPath!, BaseFilePath = Path.GetRelativePath(SourcePath!, path) };
+            if (!FilesInfo.ContainsKey(path)) FilesInfo.TryAdd(path, fileInfo);
+            else FilesInfo[path] = fileInfo;
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task Copy()
+    {
+        SourceFilesInfo.Values.ToList().ForEach(async x =>
+        {
+            await x.Copy();
+        });
+        return Task.CompletedTask;
+    }
+
+    public async Task<FileResult?> PickAndShow(PickOptions options)
+    {
+        try
+        {
+            var result = await FilePicker.Default.PickAsync(options);
+            if (result != null)
+            {
+                if (result.FileName.EndsWith("jpg", StringComparison.OrdinalIgnoreCase) ||
+                    result.FileName.EndsWith("png", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var stream = await result.OpenReadAsync();
+                    var image = ImageSource.FromStream(() => stream);
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Ex += $"{ex.Message}\n\n";
+        }
+
+        return null;
+    }
+}
