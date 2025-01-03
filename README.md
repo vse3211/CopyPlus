@@ -15,10 +15,11 @@
 - [ ] Асинхронная проверка файлов
 - [ ] Асинхронное копирование файлов
 - [ ] Поддержка командной строки и аргументов запуска
-- [ ] Windows
-- [ ] Linux
-- [ ] MacOS
-- [ ] Android
+- [ ] [Windows](https://github.com/vse3211/CopyPlus/milestone/1)
+- [ ] [Linux](https://github.com/vse3211/CopyPlus/milestone/2)
+- [ ] [MacOS](https://github.com/vse3211/CopyPlus/milestone/3)
+- [ ] [Android](https://github.com/vse3211/CopyPlus/milestone/4)
+- [ ] [iOS/iPadOS](https://github.com/vse3211/CopyPlus/milestone/5)
 - [ ] Any systems...
 
 ## Поддержка проекта
