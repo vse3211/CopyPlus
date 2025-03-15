@@ -4,6 +4,7 @@
 @using System.Security.Cryptography
 @using System.Text
 @using System.Linq
+@using System.Collections.Concurrent
 @inject IFolderPicker FolderPicker
 
 <h1 @onclick="StateHasChanged">Hello, world!</h1>
@@ -28,7 +29,7 @@
 
 @if (inProgress)
 {
-    <h1>In progress!</h1>
+    <h1>In progress! @ScanCompletedTasksInfo | @CopyCompletedTasksInfo</h1>
     <p>Copy after scan: @copyOnStart</p>
 }
 
@@ -51,6 +52,10 @@
 
 @code {
     Dictionary<string, Classes.FileInfo> SourceFilesInfo = new();
+    ConcurrentDictionary<string, Task> ScanTasks = [];
+    string ScanCompletedTasksInfo => $"Scan folders tasks: {ScanTasks.Values.ToList().FindAll(x => x.IsCompleted).Count}/{ScanTasks.Count}";
+    ConcurrentDictionary<string, Task> CopyTasks = [];
+    string CopyCompletedTasksInfo => $"Copy files tasks: {CopyTasks.Values.ToList().FindAll(x => x.IsCompleted).Count}/{CopyTasks.Count}";
     Classes.ScanResult ScanResults = new();
 
     private string? Ex { get; set; }
@@ -101,6 +106,9 @@
     private bool inProgress { get; set; } = false;
     private bool copyOnStart { get; set; } = false;
 
+    private void CreateScanTask(string path, Task task) { ScanTasks.TryAdd(path, task); this.InvokeAsync(() => StateHasChanged()); }
+    private void CreateCopyTask(string path, Task task) { CopyTasks.TryAdd(path, task); this.InvokeAsync(() => StateHasChanged()); }
+
     private async Task OpenFolder(int mode)
     {
         try
@@ -112,12 +120,14 @@
                 case 0:
                     SourcePath = await FolderPicker.PickFolder();
                     SourceFilesInfo.Clear();
+                    ScanTasks.Clear();
+                    CopyTasks.Clear();
                     break;
                 case 1:
                     TargetPath = await FolderPicker.PickFolder();
                     break;
                 case 2:
-                    if (SourcePath is not null) await Scan(SourcePath, ref SourceFilesInfo);
+                    if (SourcePath is not null) CreateScanTask(SourcePath, Scan(SourcePath, ref SourceFilesInfo));
                     break;
                 case 3:
                     if (SourcePath is not null && TargetPath is not null) await Copy();
@@ -144,13 +154,14 @@
             string[] dirs = Directory.GetDirectories(path);
             for(int i = 0; i < dirs.Count(); i++)
             {
-                Scan(dirs[i], ref FilesInfo);
+                CreateScanTask(dirs[i], Scan(dirs[i], ref FilesInfo));
             }
             string[] files = Directory.GetFiles(path);
             for (int i = 0; i < files.Count(); i++)
             {
                 Scan(files[i], ref FilesInfo);
             }
+            this.InvokeAsync(() => StateHasChanged());
         }
         else
         {
@@ -163,9 +174,10 @@
 
     private Task Copy()
     {
-        SourceFilesInfo.Values.ToList().ForEach(async x =>
+        SourceFilesInfo.Values.ToList().ForEach(x =>
         {
-            await x.Copy();
+            CreateCopyTask(x.SourcePath, x.Copy());
+            this.InvokeAsync(() => StateHasChanged());
         });
         return Task.CompletedTask;
     }

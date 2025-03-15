@@ -47,6 +47,7 @@ namespace CopyPlus.Classes
             info.Status = info.GetStatus;
             if (trys >= 5) return Task.FromException(new Exception($"Out of trys! File: {info.BaseFilePath}"));
             if (info.Status == CopyStatus.Success) return Task.CompletedTask;
+            if (!Directory.Exists(Path.GetDirectoryName(info.DestinationPath))) Directory.CreateDirectory(Path.GetDirectoryName(info.DestinationPath)!);
             if (File.Exists(info.DestinationPath)) File.Delete(info.DestinationPath);
             File.Copy(info.SourcePath, info.DestinationPath);
             trys++;
