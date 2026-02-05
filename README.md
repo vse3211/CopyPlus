@@ -21,8 +21,3 @@
 - [ ] [Android](https://github.com/vse3211/CopyPlus/milestone/4)
 - [ ] [iOS/iPadOS](https://github.com/vse3211/CopyPlus/milestone/5)
 - [ ] Any systems...
-
-## Поддержка проекта
-Вы всегда можете присоединиться к разработке проекта написав мне в Telegram: `@LondonistTV`<br/>
-Также Вы можете финансово мотивировать меня потратить свое время на развитие проекта:<br/>
-> Kaspi, Halyk, Forte, Jusan, Qiwi: `7054426149`
